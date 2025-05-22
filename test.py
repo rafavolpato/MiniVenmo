@@ -163,6 +163,7 @@ class MiniVenmo:
         for event in feed.get_events():
             print(event.get("feed_text"))
         print("End of Feed")
+
     @classmethod
     def run(cls):
         venmo = cls()
@@ -193,6 +194,38 @@ class MiniVenmo:
 
 
 class TestUser(unittest.TestCase):
+    def setUp(self):
+        self.venmo = MiniVenmo()
+        self.alice = self.venmo.create_user("Alice", 100.00, "4111111111111111")
+        self.bobby = self.venmo.create_user("Bobby", 50.00, "4242424242424242")
+
+
+    def test_pay_with_balance_sufficient(self):
+        initial_alice_balance = self.alice.balance
+        initial_bob_balance = self.bobby.balance 
+        
+        self.alice.pay(self.bobby, 20.00, "Groceries")
+
+        self.assertEqual(self.alice.balance, initial_alice_balance - 20.00)
+        self.assertEqual(self.bobby.balance, initial_bob_balance + 20.00)
+        
+        alice_feed_events = self.alice.retrieve_feed().get_events()
+        self.assertEqual(len(alice_feed_events), 1)
+        self.assertIn("Alice paid Bobby $20.00 for Groceries", alice_feed_events[0].get("feed_text"))
+
+        bob_feed_events = self.bobby.retrieve_feed().get_events()
+        self.assertEqual(len(bob_feed_events), 1)
+        self.assertIn("Alice paid Bobby $20.00 for Groceries", bob_feed_events[0].get("feed_text"))
+
+    def test_add_friend(self):
+        self.alice.add_friend(self.bobby)
+        self.assertIn(self.bobby, self.alice.friends)
+        self.assertIn(self.alice, self.bobby.friends)
+        alice_feed_events = self.alice.retrieve_feed().get_events()
+        self.assertEqual(len(alice_feed_events), 1)
+        self.assertIn("Alice and Bobby are now friends", alice_feed_events[0].get("feed_text"))
+        self.assertRaises(DuplicateFriendException, self.alice.add_friend, self.bobby)
+
 
     def test_this_works(self):
         with self.assertRaises(UsernameException):
